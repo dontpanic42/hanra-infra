@@ -1,0 +1,55 @@
+#!/bin/bash
+
+TRANSFER_BUCKET="hanra-ansible-transfer"
+CLIENT_PACKAGE="client.tar.gz"
+TMP_DIR="/tmp/deploy-client"
+HTML_DIR="/usr/share/nginx/html"
+
+mkdir -p $TMP_DIR
+if [ ! -d "$TMP_DIR" ]; then 
+	echo "Error creating tmp dir!!"
+	exit 1
+fi
+
+cd "$TMP_DIR"
+# Be REALLY sure we are in the target dir before deleting everything...
+if [ "$(pwd)" != "$TMP_DIR" ]; then
+	echo "Could not change to temp dir!"
+	exit 1
+fi
+
+# Cleanup
+rm -rf *
+
+
+echo "Fetching package ($CLIENT_PACKAGE) from bucket ($TRANSFER_BUCKET)"
+aws s3 cp "s3://$TRANSFER_BUCKET/$CLIENT_PACKAGE" .
+if [ ! -f "$CLIENT_PACKAGE" ]; then
+	echo "Could not fetch $CLIENT_PACKAGE from $TRANSFER_BUCKET"
+	exit 1
+fi
+
+echo "Unpacking package"
+tar xfz "$CLIENT_PACKAGE"
+if [ ! -d "dist" ]; then
+	echo "Unpacked client package, but no 'dist' folder present"
+	exit 1
+fi
+
+cd "$HTML_DIR"
+if [ "$(pwd)" != "$HTML_DIR" ]; then
+	echo "Could not change into html dir $HTML_DIR"
+	pwd
+	exit 1
+fi
+
+echo "Clearing html dir"
+sudo rm -rf *
+
+echo "Copying new client package over"
+sudo cp -r /tmp/deploy-client/dist/* "$HTML_DIR"
+sudo chown nginx:nginx -R *
+
+echo "All done."
+
+

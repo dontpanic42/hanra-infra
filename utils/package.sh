@@ -29,6 +29,11 @@ case $key in
     DO_UPLOAD="yes"
     shift # past argument
     ;;
+	-d|--deploy)
+	DO_UPLOAD="yes"
+	DO_DEPLOY="yes"
+	shift
+	;;
     *)    # unknown option
 	SHOW_HELP="yes"
     shift # past argument
@@ -46,6 +51,7 @@ if [ -n "$SHOW_HELP" ]; then
 	echo ""
 	echo " -h|--help	This help message"
 	echo " -u|--upload	Upload packages to s3 (default: off)"
+	echo " -d|--deploy 	Deploy to webserver (default: off)"
 	exit 0
 fi
 
@@ -97,7 +103,7 @@ cd "$BASE_DIR"
 
 # Upload packages
 
-if [ -n "$DO_UPLOAD" ]; then
+if [ ! -z "$DO_UPLOAD" ]; then
 	echo ""
 	echo "==========================================="
 	echo "Uploading to S3 ($UPLOAD_BUCKET_NAME)"
@@ -119,4 +125,23 @@ if [ -n "$DO_UPLOAD" ]; then
 	fi	
 
 	echo "All done!"
+fi
+
+# Deploy packages
+# Expects the 
+
+if [ ! -z "$DO_DEPLOY"]; then 
+	echo ""
+	echo "==========================================="
+	echo "Deploying fronted"
+	echo "==========================================="
+	echo ""
+
+	aws ssm send-command --document-name "AWS-RunShellScript" \
+		--document-version "1" \
+		--targets '[{"Key":"tag:Name","Values":["hanra-web-instance"]}]' \
+		--parameters '{"workingDirectory":[""],"executionTimeout":["120"],"commands":["deploy-client"]}' \
+		--timeout-seconds 600 --max-concurrency "50" \
+		--max-errors "0" \
+		--region eu-central-1
 fi
