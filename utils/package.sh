@@ -130,7 +130,7 @@ fi
 # Deploy packages
 # Expects the 
 
-if [ ! -z "$DO_DEPLOY"]; then 
+if [ ! -z "$DO_DEPLOY" ]; then 
 	echo ""
 	echo "==========================================="
 	echo "Deploying fronted"
