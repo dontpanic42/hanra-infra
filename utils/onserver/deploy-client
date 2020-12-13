@@ -19,7 +19,7 @@ if [ "$(pwd)" != "$TMP_DIR" ]; then
 fi
 
 # Cleanup
-rm -rf *
+sudo rm -rf "$TMP_DIR/"*
 
 
 echo "Fetching package ($CLIENT_PACKAGE) from bucket ($TRANSFER_BUCKET)"
@@ -44,7 +44,7 @@ if [ "$(pwd)" != "$HTML_DIR" ]; then
 fi
 
 echo "Clearing html dir"
-sudo rm -rf *
+sudo rm -rf "$HTML_DIR/"*
 
 echo "Copying new client package over"
 sudo cp -r /tmp/deploy-client/dist/* "$HTML_DIR"

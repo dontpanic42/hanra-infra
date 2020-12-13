@@ -56,29 +56,6 @@ if [ -n "$SHOW_HELP" ]; then
 fi
 
 # Build & package
-echo ""
-echo "==========================================="
-echo "Build & package client"
-echo "==========================================="
-echo ""
-
-cd "$CLIENT_DIR"
-
-NODE_ENV=production npm run build
-
-if [[ "$?" -ne 0 ]]; then
-	echo "Error! Client build script did not run sucessfully!"
-	exit 1
-fi
-
-if [[ ! -d "dist" ]]; then
-	echo "Error! Build ran successfully, but no 'dist' directory found in $(pwd)"
-	exit 1
-fi
-
-tar -zcvf "$OUTPUT_DIR/$CLIENT_PKG_NAME" "dist"
-cd "$BASE_DIR"
-
 # Package server
 
 echo ""
@@ -109,13 +86,6 @@ if [ ! -z "$DO_UPLOAD" ]; then
 	echo "Uploading to S3 ($UPLOAD_BUCKET_NAME)"
 	echo "==========================================="
 	echo ""
-	
-	# Upload client package
-	aws s3 cp "$OUTPUT_DIR/$CLIENT_PKG_NAME" "s3://$UPLOAD_BUCKET_NAME/$CLIENT_PKG_NAME"
-	if [[ "$?" -ne 0 ]]; then
-		echo "Error! Uploading client package to s3 failed"
-		exit 1
-	fi	
 
 	# Upload server package
 	aws s3 cp "$OUTPUT_DIR/$SERVER_PKG_NAME" "s3://$UPLOAD_BUCKET_NAME/$SERVER_PKG_NAME"
@@ -133,14 +103,14 @@ fi
 if [ ! -z "$DO_DEPLOY" ]; then 
 	echo ""
 	echo "==========================================="
-	echo "Deploying fronted"
+	echo "Deploying server"
 	echo "==========================================="
 	echo ""
 
 	aws ssm send-command --document-name "AWS-RunShellScript" \
 		--document-version "1" \
 		--targets '[{"Key":"tag:Name","Values":["hanra-web-instance"]}]' \
-		--parameters '{"workingDirectory":[""],"executionTimeout":["120"],"commands":["deploy-client"]}' \
+		--parameters '{"workingDirectory":[""],"executionTimeout":["120"],"commands":["deploy-server"]}' \
 		--timeout-seconds 600 --max-concurrency "50" \
 		--max-errors "0" \
 		--region eu-central-1

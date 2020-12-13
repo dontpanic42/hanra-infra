@@ -1,0 +1,97 @@
+#!/bin/bash
+
+TRANSFER_BUCKET="hanra-ansible-transfer"
+BACKUP_BUCKET="hanra-backup"
+SERVER_DIR="/home/nodeuser/hanra"
+DATABASE_FILE_NAME="hanra.db"
+DATABASE_FILE="$SERVER_DIR/$DATABASE_FILE_NAME"
+BACKUP_FILENAME="hanra-$(date +%s%3N).db"
+SERVER_PACKAGE="server.tar.gz"
+TMP_DIR="/tmp/deploy-server"
+NODE_USER="nodeuser"
+PM2_APP_NAME="hanra-api"
+
+mkdir -p $TMP_DIR
+if [ ! -d "$TMP_DIR" ]; then 
+	echo "Error creating tmp dir!!"
+	exit 1
+fi
+
+cd "$TMP_DIR"
+# Be REALLY sure we are in the target dir before deleting everything...
+if [ "$(pwd)" != "$TMP_DIR" ]; then
+	echo "Could not change to temp dir!"
+	exit 1
+fi
+
+# Cleanup
+rm -rf "$TMP_DIR/*"
+
+
+echo "Fetching package ($SERVER_PACKAGE) from bucket ($TRANSFER_BUCKET)"
+aws s3 cp "s3://$TRANSFER_BUCKET/$SERVER_PACKAGE" .
+if [ ! -f "$SERVER_PACKAGE" ]; then
+	echo "Could not fetch $SERVER_PACKAGE from $TRANSFER_BUCKET"
+	exit 1
+fi
+
+echo "Unpacking package"
+tar xfz "$SERVER_PACKAGE"
+# Delete original tar gz since we don't want to accidentally copy it
+rm -rf "$SERVER_PACKAGE"
+
+sudo -i bash << EOF
+	shopt -s extglob
+	echo "Working as $(whoami)"
+
+	echo "Backing up db"
+	if [ ! -f "$DATABASE_FILE" ]; then
+		echo "Could not backup database ($DATABASE_FILE) - database file not found!"
+		exit 1
+	fi
+
+	aws s3 cp "$DATABASE_FILE" "s3://$BACKUP_BUCKET/$BACKUP_FILENAME"
+	if [[ $? -ne 0 ]]; then
+		echo "Error during db backup, bailing out"
+		echo "==== NOT DEPLOYING APP!!!! ============"
+		exit 1
+	fi
+	
+	echo "Database backed up to s3://$BACKUP_BUCKET/$BACKUP_FILENAME"
+	
+	echo "Clearing server dir"
+	cd "$SERVER_DIR" && rm -r !($DATABASE_FILE_NAME)
+
+	echo "Copying artifacts"
+	cp -r "$TMP_DIR/"* "$SERVER_DIR" 
+
+	echo "Setting file permissions"
+	chown -R "$NODE_USER:$NODE_USER" "$SERVER_DIR/"*
+	
+	echo "Done running as root."
+EOF
+
+sudo -i -u "$NODE_USER" bash << EOF
+	echo "Running as $(whoami)"
+
+	# Setup the nodejs environment
+	. ~/.nvm/nvm.sh
+	
+	# Restart the application
+	pm2 stop "$PM2_APP_NAME"
+
+	cd "$SERVER_DIR" && npm install
+	if [[ $? -ne 0 ]]; then
+		echo "Error during npm install"
+		exit 1
+	fi
+
+	pm2 start "$PM2_APP_NAME"
+
+	echo "Done running as $NODE_USER"
+EOF
+
+
+echo "All done."
+
+
