@@ -107,6 +107,7 @@ if [ ! -z "$DO_DEPLOY" ]; then
 	echo "==========================================="
 	echo ""
 
+	export AWS_PAGER=""
 	aws ssm send-command --document-name "AWS-RunShellScript" \
 		--document-version "1" \
 		--targets '[{"Key":"tag:Name","Values":["hanra-web-instance"]}]' \
