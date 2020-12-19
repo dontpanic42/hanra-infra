@@ -66,6 +66,12 @@ echo ""
 
 cd "$SERVER_DIR"
 
+npm run test
+if [[ "$?" -ne 0 ]]; then
+	echo "Tests failed. Fix and try again."
+	exit 1
+fi
+
 # Server does not have a build command like the client, we just need to pack
 # everything that's in the dir that's not in the gitignore
 
